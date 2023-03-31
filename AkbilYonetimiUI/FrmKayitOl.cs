@@ -70,6 +70,7 @@ namespace AkbilYonetimiUI
 
                 
                 };
+                
                 context.Kullanicilars.Add(yeniKullanici);
                 if (context.SaveChanges()>0)
                 {
