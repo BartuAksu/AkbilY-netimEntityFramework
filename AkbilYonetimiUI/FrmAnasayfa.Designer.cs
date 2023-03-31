@@ -79,6 +79,7 @@
             MinimizeBox = false;
             Name = "FrmAnasayfa";
             Text = "ANASAYFA";
+            FormClosed += FrmAnasayfa_FormClosed;
             Load += FrmAnasayfa_Load;
             ResumeLayout(false);
         }

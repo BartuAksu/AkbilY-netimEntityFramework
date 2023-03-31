@@ -1,6 +1,4 @@
-﻿using AkbilYntmIsKatmani;
-using AkbilYntmVeriKatmani;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -10,12 +8,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using AkbilYonetimiIsKatmani;
+using AkbilYonetimiVeriKatmani;
+using AkbilYonetimiVeriKatmani.Models;
 
 namespace AkbilYonetimiUI
 {
     public partial class FrmAkbiller : Form
     {
-        IVeriTabaniIslemleri veriTabaniIslemleri = new SQLVeriTabaniIslemleri();
+        AkbildbContext context = new AkbildbContext();
         public FrmAkbiller()
         {
             InitializeComponent();
@@ -37,29 +38,27 @@ namespace AkbilYonetimiUI
                     MessageBox.Show("Akbil No 16 Haneli olmalıdır");
                     return;
                 }
-                Dictionary<string, object> yeniAkbilBilgileri = new Dictionary<string, object>();
-                yeniAkbilBilgileri.Add("AkbilNo", $"'{maskedTextBoxAkbilNo.Text}'");
-                yeniAkbilBilgileri.Add("Bakiye", 0);
-                yeniAkbilBilgileri.Add("AkbilTipi", $"'{cmbBoxAkbilTipleri.SelectedItem}'");
-                yeniAkbilBilgileri.Add("EklenmeTarihi", $"'{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'");
-                yeniAkbilBilgileri.Add("VizelendigiTarih", "null");
-                yeniAkbilBilgileri.Add("AkbilSahibiId", GenelIslemler.GirisYapanKullaniciID);
+                Akbiller yeniAkbil = new Akbiller()
+                {
+                    EklenmeTarihi = DateTime.Now,
+                    AkbilNo = maskedTextBoxAkbilNo.Text,
+                    AkbilSahibiId = GenelIslemler.GirisYapanKullaniciID,
+                    AkbilTipi = cmbBoxAkbilTipleri.SelectedItem.ToString(),
+                    Bakiye = 0,
+                    VizelendigiTarih = null
 
-                string insertCumle = veriTabaniIslemleri.VeriEklemeCumlesiOlustur("Akbiller", yeniAkbilBilgileri);
-
-                int sonuc = veriTabaniIslemleri.KomutIsle(insertCumle);
-
+                };
+                context.Akbillers.Add(yeniAkbil);
+                int sonuc = context.SaveChanges();
                 if (sonuc > 0)
                 {
-                    MessageBox.Show("Akbil Eklendi");
-                    DataGridViewiDoldur();
-                    maskedTextBoxAkbilNo.Clear();
-                    cmbBoxAkbilTipleri.SelectedIndex = -1;
-                    cmbBoxAkbilTipleri.Text = "Akbil Tipi Seçiniz";
+                    MessageBox.Show("Yeni Akbil Eklendi!");
+                    //temizlik
+
                 }
                 else
                 {
-                    MessageBox.Show("Akbil Eklenemedi!");
+                    MessageBox.Show("Yeni Akbil Eklenemedi!");
                 }
 
 
@@ -86,7 +85,7 @@ namespace AkbilYonetimiUI
         {
             try
             {
-                dataGridViewAkbiller.DataSource = veriTabaniIslemleri.VeriGetir("Akbiller", kosullar: $"AkbilSahibiId='{GenelIslemler.GirisYapanKullaniciID}'");
+                dataGridViewAkbiller.DataSource = context.Akbillers.Where(x => x.AkbilSahibiId == GenelIslemler.GirisYapanKullaniciID).ToList();
 
                 //bazı kolonlar gizlensin
                 dataGridViewAkbiller.Columns["AkbilSahibiId"].Visible = false;
@@ -101,12 +100,11 @@ namespace AkbilYonetimiUI
             }
         }
 
-        private void cikisYAPToolStripMenuItem_Click(object sender, EventArgs e)
+        private void cikisYapToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            MessageBox.Show(" Güle Güle.. \n Çıkış Yapıldı");
-            GenelIslemler.GirisYapanKullaniciAdSoyad = string.Empty;
-            GenelIslemler.GirisYapanKullaniciID = 0;
+            MessageBox.Show("  Güle Güle...  \n  Çıkış Yapıldı! ");
 
+            FrmGiris giris = new FrmGiris();
             foreach (Form item in Application.OpenForms)
             {
                 if (item.Name != "FrmGiris")

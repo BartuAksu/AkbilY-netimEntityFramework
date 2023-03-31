@@ -66,7 +66,7 @@
             cikisYAPToolStripMenuItem.Name = "cikisYAPToolStripMenuItem";
             cikisYAPToolStripMenuItem.Size = new Size(78, 20);
             cikisYAPToolStripMenuItem.Text = "ÇIKIŞ YAP";
-            cikisYAPToolStripMenuItem.Click += cikisYAPToolStripMenuItem_Click;
+            
             // 
             // groupBox1
             // 

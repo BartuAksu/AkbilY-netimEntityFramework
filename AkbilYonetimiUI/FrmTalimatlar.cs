@@ -1,5 +1,4 @@
-﻿using AkbilYntmIsKatmani;
-using AkbilYntmVeriKatmani;
+﻿
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,12 +9,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using AkbilYonetimiIsKatmani;
+using AkbilYonetimiVeriKatmani;
+using AkbilYonetimiVeriKatmani.Models;
+  
 
 namespace AkbilYonetimiUI
 {
     public partial class FrmTalimatlar : Form
     {
-        IVeriTabaniIslemleri veriTabaniIslemleri = new SQLVeriTabaniIslemleri(GenelIslemler.SinifSQLBaglantiCumlesi);
+        AkbildbContext context = new AkbildbContext();
         public FrmTalimatlar()
         {
             InitializeComponent();
@@ -44,8 +47,20 @@ namespace AkbilYonetimiUI
         {
             try
             {
-                lblBekleyenTalimat.Text = veriTabaniIslemleri.VeriGetir("KullanicininTalimatlari",
-                         kosullar: $"KullaniciId={GenelIslemler.GirisYapanKullaniciID} and YuklendiMi=0").Rows.Count.ToString();
+                // burada bekleyen talimatları bulur
+                var bekleyen = context.KullanicininTalimatlaris.Where(x => x.KullaniciId == GenelIslemler.GirisYapanKullaniciID && !x.YuklendiMi);
+
+                if (cmbBoxAkbiller.SelectedIndex >= 0)
+                {
+                    // burada ise bekleyen talimatlar içinden sadece comboda seçili olanın sayısını alıyoruz
+                    lblBekleyenTalimat.Text = bekleyen.Count(x => x.Akbil.Substring(0, 16) == cmbBoxAkbiller.SelectedValue.ToString()).ToString();
+                }
+                else
+                {
+                    // bekleyen talimatı yukarıda almıştık. Aldığımız sonucu count ile saydık
+                    lblBekleyenTalimat.Text = bekleyen.Count().ToString();
+                }
+
             }
             catch (Exception hata)
             {
@@ -53,31 +68,24 @@ namespace AkbilYonetimiUI
             }
         }
 
-        private void TalimatlariDataGrideGetir(bool tumunuGoster = false, string akbilNo = null)
+        private void TalimatlariDataGrideGetir(bool tumunuGoster = false)
         {
             try
             {
-                string kosullar = $"KullaniciId={GenelIslemler.GirisYapanKullaniciID}";
+                var talimatlar = context.KullanicininTalimatlaris.Where(x => x.KullaniciId == GenelIslemler.GirisYapanKullaniciID);
+
+                if (!tumunuGoster)
+                {
+                    talimatlar = talimatlar.Where(x => !x.YuklendiMi);
+                }
+
                 if (cmbBoxAkbiller.SelectedIndex >= 0)
                 {
-                    akbilNo = cmbBoxAkbiller.Text; //// ???? Buradaki gizemi Çözelim...
+                    talimatlar = talimatlar.Where(x => x.Akbil.Substring(0, 16) == cmbBoxAkbiller.SelectedValue.ToString());
                 }
 
+                dataGridViewTalimatlar.DataSource = talimatlar.ToList();
 
-                if (!string.IsNullOrEmpty(akbilNo))
-                {
-                    kosullar += $" and Akbil like '%{akbilNo}%' ";
-                }
-
-                if (tumunuGoster) // tumunusGoster==true
-                {
-                    dataGridViewTalimatlar.DataSource = veriTabaniIslemleri.VeriGetir("KullanicininTalimatlari", kosullar: kosullar);
-                }
-                else
-                {
-                    kosullar += " and YuklendiMi=0";
-                    dataGridViewTalimatlar.DataSource = veriTabaniIslemleri.VeriGetir("KullanicininTalimatlari", kosullar: kosullar);
-                }
                 dataGridViewTalimatlar.Columns["Id"].Visible = false;
                 dataGridViewTalimatlar.Columns["KullaniciId"].Visible = false;
                 dataGridViewTalimatlar.Columns["YuklendiMi"].HeaderText = "Talimat Yüklendi Mi?";
@@ -100,10 +108,9 @@ namespace AkbilYonetimiUI
         {
             try
             {
-                cmbBoxAkbiller.DataSource = veriTabaniIslemleri.VeriGetir("Akbiller",
-                    kosullar: $"AkbilSahibiId={GenelIslemler.GirisYapanKullaniciID}");
+                cmbBoxAkbiller.DataSource = context.Akbillers.Where(x => x.AkbilSahibiId == GenelIslemler.GirisYapanKullaniciID).ToList();
                 cmbBoxAkbiller.DisplayMember = "AkbilNo";
-                cmbBoxAkbiller.ValueMember = "AkbilNo"; //Genellikle benzersiz bilgi atanır. ÖRN :Primary key kolunu
+                cmbBoxAkbiller.ValueMember = "AkbilNo";
 
             }
             catch (Exception hata)
@@ -119,14 +126,17 @@ namespace AkbilYonetimiUI
             {
                 txtYuklenecekTutar.Clear();
                 groupBoxYukleme.Enabled = true;
+                
             }
             else
             {
                 txtYuklenecekTutar.Clear();
                 groupBoxYukleme.Enabled = false;
+                
             }
             BekleyenTalimatSayisiniGetir();
             TalimatlariDataGrideGetir(checkBoxTumunuGoster.Checked);
+
         }
 
         private void btnTalimatKaydet_Click(object sender, EventArgs e)
@@ -149,31 +159,32 @@ namespace AkbilYonetimiUI
                     return;
                 }
 
-                Dictionary<string, object> kolonlar = new Dictionary<string, object>();
-
-                kolonlar.Add("EklenmeTarihi", $"'{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'");
-                kolonlar.Add("AkbilID", $"'{cmbBoxAkbiller.SelectedValue}'");
-                kolonlar.Add("YuklenecekTutar", txtYuklenecekTutar.Text.Trim().Replace(",", "."));
-                kolonlar.Add("YuklendiMi", "0");
-                kolonlar.Add("YuklenmeTarihi", "null");
-                string talimatinsert = veriTabaniIslemleri.VeriEklemeCumlesiOlustur(
-                    "Talimatlar", kolonlar);
-                int sonuc = veriTabaniIslemleri.KomutIsle(talimatinsert);
-                if (sonuc > 0)
+                Talimatlar yeniTalimat = new Talimatlar()
                 {
-                    MessageBox.Show("Talimat Kaydedildi...");
+                    EklenmeTarihi=DateTime.Now,
+                    AkbilId=cmbBoxAkbiller.SelectedValue.ToString(),
+                    YuklendiMi=false,
+                    YuklenecekTutar=Convert.ToDecimal(txtYuklenecekTutar.Text),
+                    YuklenmeTarihi=null
+
+                };
+                context.Talimatlars.Add(yeniTalimat);
+                if (context.SaveChanges() >0)
+                {
+                    MessageBox.Show("Yeni talimat eklendi!!");
                     txtYuklenecekTutar.Clear();
-                    cmbBoxAkbiller.SelectedIndex = -1;
-                    cmbBoxAkbiller.Text = "Akbil Seçiniz...";
+                    //cmbBoxAkbiller.SelectedIndex = -1;
+                    //cmbBoxAkbiller.Text = "Akbil Seçiniz";
+
                     groupBoxYukleme.Enabled = false;
-                    TalimatlariDataGrideGetir(checkBoxTumunuGoster.Checked);
                     BekleyenTalimatSayisiniGetir();
+                    TalimatlariDataGrideGetir(checkBoxTumunuGoster.Checked);
                 }
                 else
                 {
-                    MessageBox.Show("Talimat kaydedilemedi !");
+                    MessageBox.Show("Yeni talimat EKLENEMEDİ !!");
                 }
-
+                
             }
             catch (Exception hata)
             {
@@ -183,6 +194,7 @@ namespace AkbilYonetimiUI
 
         private void checkBoxTumunuGoster_CheckedChanged(object sender, EventArgs e)
         {
+            //if yazılsa daha iyi olurdu.
             TalimatlariDataGrideGetir(checkBoxTumunuGoster.Checked);
         }
 
@@ -196,9 +208,10 @@ namespace AkbilYonetimiUI
         private void cikisYapToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show(" Güle Güle.. \n Çıkış Yapıldı");
-            GenelIslemler.GirisYapanKullaniciAdSoyad = string.Empty;
-            GenelIslemler.GirisYapanKullaniciID = 0;
+            //GenelIslemler.GirisYapanKullaniciAdSoyad = string.Empty;
+            //GenelIslemler.GirisYapanKullaniciID = 0;
 
+            FrmGiris giris = new FrmGiris();
             foreach (Form item in Application.OpenForms)
             {
                 if (item.Name != "FrmGiris")
@@ -240,12 +253,17 @@ namespace AkbilYonetimiUI
                         continue;
                     } // if bitti
 
-                    sayac += veriTabaniIslemleri.veriSil("Talimatlar", $"Id={item.Cells["Id"].Value}");
+                    var secilenTaliat = context.Talimatlars.FirstOrDefault(x => x.Id == (int)item.Cells["Id"].Value);
+                    if (secilenTaliat!=null)
+                    {
+                        context.Talimatlars.Remove(secilenTaliat);
+                        sayac += context.SaveChanges();
+                    }
 
                 } // foreach bitti
 
                 MessageBox.Show($"Seçtiğiniz {sayac} adet talimat iptal edilmiştir.");
-                TalimatlariDataGrideGetir();
+                TalimatlariDataGrideGetir(checkBoxTumunuGoster.Checked);
                 BekleyenTalimatSayisiniGetir();
             }
             catch (Exception hata)
@@ -266,36 +284,28 @@ namespace AkbilYonetimiUI
                         continue;
                     }
 
-                    //talimatlar tablosunu güncellemek
-                    Hashtable talimatkolonlar = new Hashtable();
-                    talimatkolonlar.Add("YuklendiMi", 1);
-                    talimatkolonlar.Add("YuklenmeTarihi", $"'{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'");
-                    string talimatGuncelle = veriTabaniIslemleri.VeriGuncellemeCumlesiOlustur("Talimatlar", talimatkolonlar, $"Id={item.Cells["Id"].Value}");
-                    if (veriTabaniIslemleri.KomutIsle(talimatGuncelle) > 0)
+                    //önce talimatı yüklendimi=1 yapıcaz
+                    var secilenTalimat = context.Talimatlars.FirstOrDefault(x => x.Id == (int)item.Cells["Id"].Value);
+                    if (secilenTalimat!=null)
                     {
-                        //akbilin mevcut bakiyesini öğren
-                        decimal bakiye = Convert.ToDecimal(
-                        veriTabaniIslemleri.VeriOku("Akbiller", new string[] { "Bakiye" },
-                            $"AkbilNo='{item.Cells["Akbil"].Value.ToString()?.Substring(0, 16)}'")["Bakiye"]);
+                        secilenTalimat.YuklendiMi = true;
+                        secilenTalimat.YuklenmeTarihi = DateTime.Now;
+                        context.Talimatlars.Update(secilenTalimat);
+                        context.SaveChanges();
 
-                        //var sonuc = veriTabaniIslemleri.VeriOku("Akbiller", new string[] { "Bakiye" },
-                        //    $"AkbilNo='{item.Cells["Akbil"].Value.ToString()?.Substring(0, 15)}'");
-                        //decimal bakiye = (decimal)sonuc["Bakiye"];
+                        //sonra akbilin bakiyesine ekleme yapıcaz
 
-                        //akbil bakiyesini güncellemek
-                        Hashtable akbilkolon = new Hashtable();
+                        secilenTalimat.Akbil.Bakiye += Convert.ToDecimal(item.Cells["YuklenecekTutar"].Value);
 
-                        var sonBakiye = (bakiye + (decimal)item.Cells["YuklenecekTutar"].Value).ToString().Replace(",", ".");
-
-                        akbilkolon.Add("Bakiye", sonBakiye);
-
-                        string akbilGuncelle = veriTabaniIslemleri.VeriGuncellemeCumlesiOlustur("Akbiller", akbilkolon, $"AkbilNo='{item.Cells["Akbil"].Value.ToString()?.Substring(0, 16)}'");
-
-                        sayac += veriTabaniIslemleri.KomutIsle(akbilGuncelle);
+                        context.Akbillers.Update(secilenTalimat.Akbil);
+                        context.SaveChanges();
+                        sayac++;
                     }
+
+
                 } // foreach bitti.
                 MessageBox.Show($"{sayac} adet talimat akbile yüklendi!");
-                TalimatlariDataGrideGetir();
+                TalimatlariDataGrideGetir(checkBoxTumunuGoster.Checked);
                 BekleyenTalimatSayisiniGetir();
             }
             catch (Exception hata)

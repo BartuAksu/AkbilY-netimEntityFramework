@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AkbilYonetimiIsKatmani;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -41,6 +42,15 @@ namespace AkbilYonetimiUI
             this.Hide();
             FrmTalimatlar frmt = new FrmTalimatlar();
             frmt.Show();
+        }
+
+        private void FrmAnasayfa_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            GenelIslemler.GirisYapanKullaniciAdSoyad = string.Empty;
+            GenelIslemler.GirisYapanKullaniciID = 0;
+            this.Hide();
+            FrmGiris giris = new FrmGiris();
+            giris.Show();
         }
     }
 }

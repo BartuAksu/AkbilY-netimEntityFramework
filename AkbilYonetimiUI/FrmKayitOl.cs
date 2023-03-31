@@ -1,5 +1,5 @@
-﻿using AkbilYntmIsKatmani;
-using AkbilYntmVeriKatmani;
+﻿
+using AkbilYonetimiVeriKatmani.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -10,12 +10,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using AkbilYonetimiIsKatmani;
+using AkbilYonetimiVeriKatmani;
+using AkbilYonetimiVeriKatmani.Models;
 
 namespace AkbilYonetimiUI
 {
     public partial class FrmKayitOl : Form
     {
-        IVeriTabaniIslemleri veriTabaniIslemleri = new SQLVeriTabaniIslemleri(GenelIslemler.SinifSQLBaglantiCumlesi);
+        AkbildbContext context = new AkbildbContext();
+       
         public FrmKayitOl()
         {
             InitializeComponent(); // İnşa etmek
@@ -36,50 +40,68 @@ namespace AkbilYonetimiUI
         {
             try
             {
+                btnKayitOl.Enabled = false;
+                btnGirisYap.Enabled = false;
                 foreach (var item in Controls)
                 {
                     if (item is TextBox && string.IsNullOrEmpty(((TextBox)item).Text))
                     {
                         MessageBox.Show("Zorunlu alanları doldurunuz!");
+                        btnKayitOl.Enabled = true;
+                        btnGirisYap.Enabled = true;
                         return;
                     }
                 }
-                Dictionary<string, object> kolonlar = new Dictionary<string, object>();
-                kolonlar.Add("Ad", $"'{txtIsim.Text.ToUpper().Trim()}'");
-                kolonlar.Add("Soyad", $"'{txtSoyisim.Text.ToUpper().Trim()}'");
-                kolonlar.Add("Email", $"'{txtEmail.Text.Trim()}'");
-                kolonlar.Add("EklenmeTarihi", $"'{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")}'");
-                kolonlar.Add("DogumTarihi", $"'{dtpDogumTarihi.Value.ToString("yyyyMMdd")}'");
-                kolonlar.Add("Parola", $"'{GenelIslemler.MD5Encryption(txtSifre.Text.Trim())}'");
-
-
-                string insertCumle = veriTabaniIslemleri.VeriEklemeCumlesiOlustur("Kullanicilar", kolonlar);
-                int sonuc = veriTabaniIslemleri.KomutIsle(insertCumle);
-                if (sonuc > 0)
+                if (context.Kullanicilars.FirstOrDefault(x=>x.Email==txtEmail.Text.Trim())!=null)
                 {
-                    MessageBox.Show("Kayıt oluşturuldu");
+                    MessageBox.Show("Bu Emaille Sistemde Kayıt Mevcuttur!");
+                    btnKayitOl.Enabled = true;
+                    btnGirisYap.Enabled = true;
+                    return;
+                }
+                Kullanicilar yeniKullanici = new Kullanicilar()
+                { 
+                    EklenmeTarihi=DateTime.Now,
+                    Ad=txtIsim.Text.Trim(),
+                    Soyad=txtSoyisim.Text.Trim(),
+                    DogumTarihi=dtpDogumTarihi.Value,
+                    Email=txtEmail.Text.Trim(),
+                    Parola=GenelIslemler.MD5Encryption(txtSifre.Text.Trim())
 
-                    DialogResult cevap = MessageBox.Show("Giriş sayfasına yönlendirmemizi ister misin?", "SORU", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-
-                    if (cevap == DialogResult.Yes)
+                
+                };
+                context.Kullanicilars.Add(yeniKullanici);
+                if (context.SaveChanges()>0)
+                {
+                    MessageBox.Show("Kullanici Eklendi!");
+                    foreach (var item in Controls)
                     {
-                        // temizklik
-
-                        // Girişe git
-                        FrmGiris frmg = new FrmGiris();
-                        frmg.Email = txtEmail.Text.Trim();
-
-                        foreach (Form item in Application.OpenForms)
+                        if (item is TextBox)
                         {
-                            item.Hide();
+                            ((TextBox)item).Clear();
                         }
-                        frmg.Show();
+                        if (item is DateTimePicker)
+                        {
+                            ((DateTimePicker)item).Value = ((DateTimePicker)item).MaxDate;
+                        }
+                    }
+                    var cevap= MessageBox.Show("Giriş Sayfasın Gitmek İstermisiniz?","SORU",MessageBoxButtons.YesNo,MessageBoxIcon.Question);
+                    if ((int)cevap==6)
+                    {
+                        FrmGiris frgm = new FrmGiris();
+                        frgm.Email = txtEmail.Text.Trim();
+                        this.Hide();
+                        frgm.Show();
                     }
                 }
                 else
                 {
-                    MessageBox.Show("Kayıt EKLENEMEDİ!");
+                    MessageBox.Show("Kullanici Ekleme Başarısız Oldu!");
                 }
+                btnKayitOl.Enabled = true;
+                btnGirisYap.Enabled = true;
+
+
             }
             catch (Exception ex)
             {

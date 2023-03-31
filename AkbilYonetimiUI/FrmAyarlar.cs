@@ -1,4 +1,4 @@
-﻿using AkbilYntmIsKatmani;
+﻿
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,11 +9,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
+using AkbilYonetimiVeriKatmani;
+using AkbilYonetimiIsKatmani;
+using AkbilYonetimiVeriKatmani.Models;
 namespace AkbilYonetimiUI
 {
     public partial class FrmAyarlar : Form
     {
+        AkbildbContext context = new AkbildbContext();
         public FrmAyarlar()
         {
             InitializeComponent();
@@ -32,11 +35,19 @@ namespace AkbilYonetimiUI
         {
             try
             {
-                //Not:Giriş yapmış kullanıcının bilgilerini select sorgusu yazacağız
-                //Kullanıcı bilgisini alabilmek için burada 2 yöntem kullanabiliriz.
-                //Static bir class açıp içinde GirisYapmisKullaiciEmail propertysi kullanılabilir
-                //2.Yöntem olarak Properties settings içine kayıtlı email bilgisinden yararlanılabilir.
-
+                var kullanici = context.Kullanicilars.FirstOrDefault(x => x.Id == GenelIslemler.GirisYapanKullaniciID);
+                if (kullanici!=null)
+                {
+                    txtAd.Text = kullanici.Ad;
+                    txtSoyad.Text = kullanici.Soyad;
+                    txtEmail.Text = kullanici.Email;
+                    txtEmail.Enabled = false;
+                    dtpDogumTarihi.Value = kullanici.DogumTarihi.Value;
+                }
+                else
+                {
+                    MessageBox.Show("Kullanıcı Bilgileri Getirilemedi!");
+                }
 
 
             }
@@ -51,13 +62,35 @@ namespace AkbilYonetimiUI
         {
             try
             {
+                var kullanici = context.Kullanicilars.FirstOrDefault(x =>
+                x.Id == GenelIslemler.GirisYapanKullaniciID);
+                if (kullanici != null)
+                {
+                    kullanici.Ad = txtAd.Text.Trim();
+                    kullanici.Soyad = txtSoyad.Text.Trim();
+                    kullanici.DogumTarihi = dtpDogumTarihi.Value;
 
+                    if (!string.IsNullOrEmpty(txtSifre.Text.Trim()) &&
+                        kullanici.Parola != GenelIslemler.MD5Encryption(txtSifre.Text.Trim()))
+                    {
+                        kullanici.Parola = GenelIslemler.MD5Encryption(txtSifre.Text.Trim());
+                        MessageBox.Show("Yeni şifre girdiniz !");
+                    }
 
+                    context.Kullanicilars.Update(kullanici);
+                    if (context.SaveChanges() > 0)
+                    {
+                        MessageBox.Show("Bilgileriniz güncellendi !");
+                        FrmAnasayfa frma = new FrmAnasayfa();
+                        this.Hide();
+                        frma.Show();
+                    }
+
+                }
             }
             catch (Exception hata)
             {
-
-                MessageBox.Show("Güncelleme BAŞARISIZDIR !" + hata.Message);
+                MessageBox.Show("Güncelleme BAŞARISIZDIR! " + hata.Message);
             }
         }
 
@@ -71,9 +104,10 @@ namespace AkbilYonetimiUI
         private void çIKIŞToolStripMenuItem_Click(object sender, EventArgs e)
         {
             MessageBox.Show(" Güle Güle.. \n Çıkış Yapıldı");
-            GenelIslemler.GirisYapanKullaniciAdSoyad = string.Empty;
-            GenelIslemler.GirisYapanKullaniciID = 0;
+            //GenelIslemler.GirisYapanKullaniciAdSoyad = string.Empty;
+            //GenelIslemler.GirisYapanKullaniciID = 0;
 
+            FrmGiris giris = new FrmGiris();
             foreach (Form item in Application.OpenForms)
             {
                 if (item.Name != "FrmGiris")
